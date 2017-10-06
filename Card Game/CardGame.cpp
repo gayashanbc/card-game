@@ -17,9 +17,7 @@ enum Cards {
 // Type definitions
 typedef struct Player {
 	char *name = (char *)malloc(50);
-	int score =0;
-	int numberOfWins;
-	int numberOfLosses;
+	int score = 0;
 	int currentSelectedCard[2];
 };
 typedef struct Game {
@@ -38,8 +36,9 @@ void selectPlayerMode(Game *);
 void selectNumberOfRounds(Game *);
 void populateCardDeck(Game *);
 void shuffleCardDeck(Game *);
-char * getCardChoice(Player *);
-void addPlayerName(Player *, int);
+unsigned int rand_interval(unsigned int, unsigned int);
+void getCardChoice(Game *, Player *, bool);
+void addPlayerName(Player *, int, bool);
 void printCardDeck(Game *, bool);
 char * getCardName(int, int, bool);
 char * getGameResult(Player *, Player *);
@@ -61,21 +60,25 @@ void mainMenu()
 	Player player_2;
 
 	selectPlayerMode(&gameObject);
-	addPlayerName(&player_1, 1);
+	addPlayerName(&player_1, 1, true);
 	if (gameObject.playerType == DOUBLE_PLAYER) {
-		addPlayerName(&player_2, 2);
+		addPlayerName(&player_2, 2, false);
 	}
 	else
 	{
 		strcpy_s(player_2.name, 50, "Computer");
 	}
 	selectNumberOfRounds(&gameObject);
-	//do {
-	//
-	//} while (gameObject.numberOfRounds > 0);
-	getCardChoice(&player_1);
-	getCardChoice(&player_2);
-	evaluateCardSelection(&gameObject, &player_1, &player_2);
+	populateCardDeck(&gameObject);
+	do {
+		printCardDeck(&gameObject, true);
+		getCardChoice(&gameObject, &player_1, true);
+		if (gameObject.playerType == DOUBLE_PLAYER) {
+			printCardDeck(&gameObject, true);
+		}
+		getCardChoice(&gameObject, &player_2, false);
+		evaluateCardSelection(&gameObject, &player_1, &player_2);
+	} while (gameObject.numberOfRounds > 0);
 	printStats(&gameObject, &player_1, &player_2);
 }
 
@@ -123,9 +126,9 @@ void selectNumberOfRounds(Game *gameObject)
 		}
 		else {
 			puts("\n\t--- Please enter a valid number! ---");
-			while ((input = getchar()) != '\n' && input != EOF) {
-				;//clear the buffer
-			}
+			//while ((input = getchar()) != '\n' && input != EOF) {
+			//	;//clear the buffer
+			//}
 			input = -1;
 		}
 	} while (shouldContinue || input < 0 || input > 52);
@@ -157,36 +160,56 @@ void shuffleCardDeck(Game *gameObject)
 	}
 }
 
-char * getCardChoice(Player *player)
+unsigned int rand_interval(unsigned int min, unsigned int max)
+{
+	int r;
+	const unsigned int range = 1 + max - min;
+	const unsigned int buckets = RAND_MAX / range;
+	const unsigned int limit = buckets * range;
+
+	do
+	{
+		r = rand();
+	} while (r >= limit);
+
+	return min + (r / buckets);
+}
+
+void getCardChoice(Game * gameObject, Player *player, bool isFirstCall)
 {
 	char input[5];
 	bool shouldContinue = true;
 	int column, row;
 
-	do {
-		puts("\n\t*** Enter a row and a column in 2 digits (##) ***\n");
-		printf("INPUT >> ");
-		while ((*input = getchar()) != '\n' && *input != EOF) {
-			;//clear the buffer
-		}
-		fgets(input, 5, stdin);
-		input[strcspn(input, "\n")] = 0;
-		row = input[0] - '0';
-		column = input[1] - '0';
-		if (column > 0 && column <= 13 && row > 0 && row <= 4) {
-			player->currentSelectedCard[0] = row;
-			player->currentSelectedCard[1] = column;
-			shouldContinue = false;
-		}
-		else {
-			puts("\n\t--- Please enter a valid number! ---");
-		}
+	if (gameObject->playerType == SINGLE_PLAYER && !isFirstCall) {
+		row = rand_interval(1, 4);
+		column = rand_interval(1, 13);
+		player->currentSelectedCard[0] = row - 1;
+		player->currentSelectedCard[1] = column - 1;
+	}
+	else {
+		do {
+			puts("\n\t*** Enter a row and a column seperated by a spcae (# #) ***\n");
+			printf("INPUT >> ");
+			while ((*input = getchar()) != '\n' && *input != EOF && isFirstCall) {
+				;//clear the buffer
+			}
+			scanf_s(" %d %d", &row, &column);
 
-	} while (shouldContinue);
-	return input;
+			if (column > 0 && column <= 13 && row > 0 && row <= 4) {
+				player->currentSelectedCard[0] = row - 1;
+				player->currentSelectedCard[1] = column - 1;
+				shouldContinue = false;
+			}
+			else {
+				puts("\n\t--- Please enter a valid number! ---");
+			}
+
+		} while (shouldContinue);
+	}
 }
 
-void addPlayerName(Player *player, int index)
+void addPlayerName(Player *player, int index, bool isFirstCall)
 {
 	char input[50];
 	bool shouldContinue = true;
@@ -194,7 +217,7 @@ void addPlayerName(Player *player, int index)
 	do {
 		printf("\n\t*** Add a name for Player: %d ***\n", index);
 		printf("\nINPUT >> ");
-		while ((*input = getchar()) != '\n' && *input != EOF) {
+		while (isFirstCall && (*input = getchar()) != '\n' && *input != EOF) {
 			;//clear the buffer
 		}
 		fgets(input, 50, stdin);
@@ -329,21 +352,34 @@ void evaluateCardSelection(Game *gameObhect, Player *player_1, Player *player_2)
 	printf("\n\t%s selected %s\n", player_2->name, getCardName(player_2->currentSelectedCard[0], player_2->currentSelectedCard[1], true));
 	if (player_1->currentSelectedCard[1] > player_2->currentSelectedCard[1]) {
 		player_1->score++;
+		printf("\n\t+1 Point for Player 1: %s\n", player_1->name);
 	}
 	else if (player_1->currentSelectedCard[1] < player_2->currentSelectedCard[1]) {
 		player_2->score++;
+		printf("\n\t+1 Point for Player 2: %s\n", player_2->name);
 	}
 	gameObhect->cardDeck[player_1->currentSelectedCard[0]][player_1->currentSelectedCard[1]] = -1;
 	gameObhect->cardDeck[player_2->currentSelectedCard[0]][player_2->currentSelectedCard[1]] = -1;
-	printf("\n\tNumber of rounds remaining: %d\n", gameObhect->numberOfRounds);
-	gameObhect->numberOfRounds--;
+	printf("\n\tNumber of rounds remaining: %d\n", --gameObhect->numberOfRounds);
 }
 
 void printStats(Game *gameObhect, Player *player_1, Player *player_2)
 {
-	puts("\n\t*** Game statistics ***\n");
+	puts("\n\n\t*** Game statistics ***\n");
 	puts("\tPlayer\t\tScore\n");
 	printf("\t%s\t%d\n", player_1->name, player_1->score);
 	printf("\t%s\t%d\n", player_2->name, player_2->score);
 	printf("\n\tResult: %s\n", getGameResult(player_1, player_2));
+
+	//saving to file - gameData.txt
+	FILE *saveFile;
+
+	fopen_s(&saveFile, "gameData.txt", "a");
+	fputs("\n-----------------------------------------", saveFile);
+	fputs("\n\n\t*** Game statistics ***\n", saveFile);
+	fputs("\tPlayer\t\tScore\n", saveFile);
+	fprintf(saveFile, "\t%s\t%d\n", player_1->name, player_1->score);
+	fprintf(saveFile, "\t%s\t%d\n", player_2->name, player_2->score);
+	fprintf(saveFile, "\n\tResult: %s\n", getGameResult(player_1, player_2));
+	fputs("\n----------------------------------------\n", saveFile);
 }

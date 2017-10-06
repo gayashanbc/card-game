@@ -1,0 +1,11 @@
+
+------------------------------
+
+	*** Game statistics ***
+	Player		Score
+	Gayashan	0
+	Computer	2
+
+	Result: Computer Wins!
+
+------------------------------
