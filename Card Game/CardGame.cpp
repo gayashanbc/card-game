@@ -126,9 +126,6 @@ void selectNumberOfRounds(Game *gameObject)
 		}
 		else {
 			puts("\n\t--- Please enter a valid number! ---");
-			//while ((input = getchar()) != '\n' && input != EOF) {
-			//	;//clear the buffer
-			//}
 			input = -1;
 		}
 	} while (shouldContinue || input < 0 || input > 52);
